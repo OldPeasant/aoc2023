@@ -71,6 +71,27 @@ def all_equal(walkers):
         y.add(w.row)
     return len(x) == 1 and len(y) == 1
 
+def replace_start_char(grid, start, sd):
+    print("replace_start_char", start, sd)
+    for dirs, c in tiles.items():
+        print("check", dirs, c)
+        if sd[0] in dirs and sd[1] in dirs:
+            print("Yes")
+            old_row = grid[start[0]]
+            print("old row", old_row)
+            new_row = ""
+            if start[1] > 0:
+                new_row += old_row[:start[1]]
+            new_row += c
+            if start[1] < len(grid[start[0]]) - 1:
+                new_row += old_row[start[1] + 1:]
+            print("new row", new_row)
+            grid[start[0]] = new_row
+            return
+        else:
+            print('no')
+    print("No replacement found")
+
 with open(sys.argv[1]) as f:
     lines = f.read().splitlines()
 
@@ -86,7 +107,8 @@ with open(sys.argv[1]) as f:
     print(grid[start[0]][start[1]])
     
     print("-------------------")
-    walker = Walker(grid, start[0], start[1], find_start_directions(grid, start)[0])
+    sd = find_start_directions(grid, start)
+    walker = Walker(grid, start[0], start[1], sd[0])
     while True:
         if not walker.next():
             break
@@ -98,6 +120,7 @@ with open(sys.argv[1]) as f:
         spots = rot
     print(spots)
     
+    replace_start_char(grid, start, sd)
     grouper = Grouper()
     last_row = spots[0][0]
     for s in spots:
@@ -106,8 +129,42 @@ with open(sys.argv[1]) as f:
             last_row = s[0]
         grouper.add(s)
     
+    groups_per_line = DictOfLists()
     for g in grouper.groups:
         print(g)
+        col_indexes = list(a[1] for a in g)
+        col_indexes.sort()
+        c1 = grid[g[0][0]][col_indexes[0]]
+        c2 = grid[g[0][0]][col_indexes[-1]]
+        print("the c's", c1, c2)
+        ends = backwards[c1] + backwards[c2]
+        groups_per_line.add(g[0][0], (col_indexes[0], col_indexes[-1], 'N' in ends and 'S' in ends) )
+        #if 'N' in ends and 'S' in ends:
+        #    print(ends, "a changer")
+        #else:
+        #    print(ends, "not a changer")
+    
+    count_inside = 0
+    for row_ix, row in enumerate(grid):
+        ranges_per_row = groups_per_line.get(row_ix)
+        ranges_per_row.sort(key= lambda a:a[0])
+        #from_ix, to_ix, changer = ranges_per_row
+        print("Row", row_ix, ranges_per_row)
+        col = 0
+        is_on = False
+        last_range = None
+        for r in ranges_per_row:
+            print("check range", r, is_on)
+            if is_on:
+                inside = max(0, r[0] - last_range[1] - 1)
+                print("inside", inside)
+                count_inside += inside
+            if r[2]:
+                is_on = not is_on
+            last_range = r
+        if is_on:
+            raise Exception()
+    print(count_inside)
 
     # ToDo
     # - identify active vs inactive horizontal groups
