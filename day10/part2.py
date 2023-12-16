@@ -18,12 +18,21 @@ for k, v in tiles.items():
 backwards['.'] = "."
 print(backwards)
 
-step = {
-    "N" : [-1, 0, "S"],
-    "S" : [ 1, 0, "N"],
-    "E" : [ 0, 1, "W"],
-    "W" : [ 0,-1, "E"]
-}
+
+def find_start_directions(grid, s):
+    directions = []
+    for conf in [
+            ['N', -1, 0, 'S'],
+            ['S', +1, 0, 'N'],
+            ['W', 0, -1, 'E'],
+            ['E', 0, +1, 'W']]:
+        go_to, sr, sc, back = conf
+        c = grid[s[0] + sr][s[1] + sc]
+        if back in backwards[c]:
+            directions.append(go_to)
+    print("Start directions", directions)
+    return directions
+
 
 class Walker:
     def __init__(self, grid, row, col, direction):
@@ -31,33 +40,28 @@ class Walker:
         self.row = row
         self.col = col
         self.direction = direction
-        self.horizontals = Grouper()
-        self.horizontals.add((self.row, self.col))
+        self.visited = [ (row, col) ]
     def __repr__(self):
         return "(" + str(self.col) + ", " + str(self.row) + "):" + self.direction
 
-    
-    def _gen_next(self, row_inc, col_inc, ch):
-        print("next", self.row, self.col, row_inc, col_inc, ch)
-        self.row += row_inc
-        self.col += col_inc
-        print("    n", self.row, self.col)
-        if col_inc == 0:
-            self.horizontals.next()
-        self.horizontals.add((self.row, self.col))
-
-        print("get f {},{}: {}".format(self.row, self.col, self))
+    def next(self):
+        dr, dc, opp = {
+                'N' : (-1, 0, 'S'),
+                'S' : (+1, 0, 'N'),
+                'W' : (0, -1, 'E'),
+                'E' : (0, +1, 'W')
+                }[self.direction]
+        self.row += dr
+        self.col += dc
+        self.visited.append( (self.row, self.col) )
         f = self.grid[self.row][self.col]
-        b = backwards[f] if f in backwards else ''
+        if f == 'S':
+            return False
+        b = backwards[f]
         l = list(b)
-        if ch not in l:
-            return None
-        l.remove(ch)
+        l.remove(opp)
         self.direction = l[0]
         return True
-
-    def next(self):
-        return self._gen_next(*step[self.direction])
 
 def all_equal(walkers):
     x = set()
@@ -82,67 +86,30 @@ with open(sys.argv[1]) as f:
     print(grid[start[0]][start[1]])
     
     print("-------------------")
-    walkers = list(Walker(grid, start[0], start[1], direction) for direction in ["N", "S", "E", "W"])
-    count = 0
-    line = [start]
-    ended_walkers = []
+    walker = Walker(grid, start[0], start[1], find_start_directions(grid, start)[0])
     while True:
-        remaining_walkers = []
-        for w in walkers:
-            #print("walker ", w)
-            if w.next():
-                #print("   has next")
-                line.append( (w.row, w.col) )
-                remaining_walkers.append(w)
-            else:
-                print("walker ", w)
-                print("   has no next")
-                ended_walkers.append(w)
-                for row_ix, row in enumerate(grid):
-                    l = ""
-                    for col_ix, cell in enumerate(row):
-                        flats = [item for sublist in w.horizontals.groups for item in sublist]
-
-                        if (row_ix, col_ix) in flats:
-                            l += "*"
-                        else:
-                            l += cell
-                    print(l)
-                per_row = DictOfLists()
-                for h in w.horizontals.groups:
-                    row = h[0][0]
-                    rng = ( min(c[1] for c in h), max(c[1] for c in h ) )
-                    per_row.add(row, rng)
-
-                print(per_row.dict)
-        walkers = list(w for w in  ended_walkers if len(w.horizontals.groups) > 1)
-        count += 1
-        print("----------")
-        print(walkers)
-        print("- - - - - - - - -")
-        if start == (walkers[0].row, walkers[0].col):
-
-            print(line)
-            print(count)
+        if not walker.next():
             break
-    count_inside = 0
-    w = walkers[0]
-    print(w)
-    exit(0)
-    for row_ix, row in enumerate(grid):
-        print(row)
-        curr_inside = False
-        for col_ix, cell in enumerate(grid[row_ix]):
-            cell_ix = (row_ix, col_ix)
-            print("ci", cell_ix)
-            if cell_ix in line:
-                if cell == '|':
-                    curr_inside = not curr_inside
+    spots = walker.visited[:-1]
+    print(spots)
+    while spots[0][0] == spots[-1][0]:
+        rot = [spots[-1]]
+        rot.extend(spots[:-1])
+        spots = rot
+    print(spots)
+    
+    grouper = Grouper()
+    last_row = spots[0][0]
+    for s in spots:
+        if s[0] != last_row:
+            grouper.next()
+            last_row = s[0]
+        grouper.add(s)
+    
+    for g in grouper.groups:
+        print(g)
 
-            if cell_ix in line and cell != '-':
-                curr_inside = not curr_inside
-            print(curr_inside)
-            if cell == "." and curr_inside:
-                count_inside += 1
-                print("count", count_inside)
-    print(count_inside)
+    # ToDo
+    # - identify active vs inactive horizontal groups
+    # - sequence per row
+    # - count what is inside

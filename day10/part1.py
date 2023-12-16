@@ -18,57 +18,47 @@ for k, v in tiles.items():
 backwards['.'] = "."
 print(backwards)
 
+
+def find_start_directions(grid, s):
+    directions = []
+    for conf in [
+            ['N', -1, 0, 'S'],
+            ['S', +1, 0, 'N'],
+            ['W', 0, -1, 'E'],
+            ['E', 0, +1, 'W']]:
+        go_to, sr, sc, back = conf
+        c = grid[s[0] + sr][s[1] + sc]
+        if back in backwards[c]:
+            directions.append(go_to)
+    print("Start directions", directions)
+    return directions
+
+
 class Walker:
     def __init__(self, grid, row, col, direction):
         self.grid = grid
         self.row = row
         self.col = col
         self.direction = direction
+        self.visited = [ (row, col) ]
     def __repr__(self):
         return "(" + str(self.col) + ", " + str(self.row) + "):" + self.direction
 
     def next(self):
-        if self.direction == "N":
-            self.row -= 1
-            f = self.grid[self.row][self.col]
-            b = backwards[f]
-            l = list(b)
-            if "S" not in l:
-                return None
-            l.remove("S")
-            self.direction = l[0]
-        elif self.direction == "S":
-            self.row += 1
-            f = self.grid[self.row][self.col]
-            b = backwards[f]
-            l = list(b)
-            if "N" not in l:
-                return None
-            l.remove("N")
-            self.direction = l[0]
-        elif self.direction == "E":
-
-            self.col += 1
-            f = self.grid[self.row][self.col]
-            b = backwards[f]
-            l = list(b)
-            if "W" not in l:
-                return None
-            l.remove("W")
-            self.direction = l[0]
-        elif self.direction == "W":
-
-            self.col -= 1
-            f = self.grid[self.row][self.col]
-            b = backwards[f]
-            l = list(b)
-            if "E" not in l:
-                return None
-            l.remove("E")
-            self.direction = l[0]
-        else:
-            raise Exception()
-        return True
+        dr, dc, opp = {
+                'N' : (-1, 0, 'S'),
+                'S' : (+1, 0, 'N'),
+                'W' : (0, -1, 'E'),
+                'E' : (0, +1, 'W')
+                }[self.direction]
+        self.row += dr
+        self.col += dc
+        self.visited.append( (self.row, self.col) )
+        f = self.grid[self.row][self.col]
+        b = backwards[f]
+        l = list(b)
+        l.remove(opp)
+        self.direction = l[0]
 
 def all_equal(walkers):
     x = set()
@@ -93,18 +83,18 @@ with open(sys.argv[1]) as f:
     print(grid[start[0]][start[1]])
     
     print("-------------------")
-    walkers = list(Walker(grid, start[0], start[1], direction) for direction in ["N", "S", "E", "W"])
+    walkers = list(Walker(grid, start[0], start[1], direction) for direction in find_start_directions(grid, start))
+    
+
+
     count = 0
     line = [start]
     while True:
-        remaining_walkers = []
         for w in walkers:
-            if w.next():
-                line.append( (w.row, w.col) )
-                remaining_walkers.append(w)
-        walkers = remaining_walkers
-        count += 1
-        if all_equal(walkers):
-            print(line)
-            print(count)
-        print(count, walkers)
+            w.next()
+            for wo in walkers:
+                if w != wo:
+                    for oc in wo.visited:
+                        if oc == (w.row, w.col):
+                            print(len(w.visited)-1)
+                            exit(0)
